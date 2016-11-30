@@ -36,19 +36,17 @@
 #define dpOnHex 0x80
 
 #define maxSize 10 // queue max size
+#define stpMtrDelay for(i = 0; i < 10000; i++) // stepper motor delay
 
 int btnQueue[maxSize], destQueue[maxSize];
 
 unsigned char LVL_ONE, LVL_TWO, LVL_THREE, ROT_SPD, PORTA_outval, PORTB_outval;
-unsigned char PRHighFlag, PRLowFlag, PRIsHighFunc;
+unsigned char PRIsHighSignal, PRHighFlag, PRLowFlag;
 unsigned char dir, spd, data, tmp;
 
 unsigned int btnQueueIndex, destQueueIndex, lvlPartCnt, currLvl, dest;
-btnQueueIndex = destQueueIndex = lvlPartCnt = 0;
-currLvl = 1;
 
 unsigned long i, j;
-i = j = 0;
 
 unsigned char convertIntToBcdHex(int num){
     unsigned char bcdHex;
@@ -109,22 +107,22 @@ void rotateMotor(unsigned char spd, unsigned char dir){
                 // reverse
                 PORTB_outval = 0x3A;
                 PORTB = PORTB_outval;
-                for(i = 0; i < 10000; i++);
+                stpMtrDelay;
                 PORTB_outval = 0x39;
                 PORTB = PORTB_outval;
-                for(i = 0; i < 10000; i++);
+                stpMtrDelay;
                 PORTB_outval = 0x35;
                 PORTB = PORTB_outval;
-                for(i = 0; i < 10000; i++);
+                stpMtrDelay;
                 PORTB_outval = 0x36;
                 PORTB = PORTB_outval;
-                for(i = 0; i < 10000; i++);
+                stpMtrDelay;
             } 
             else if(!dir){
                 for(j = 0; j <= 3; j++){
                     PORTB_outval = full[j];
                     PORTB = PORTB_outval;
-                    for(i = 0; i < 10000; i++);
+                    stpMtrDelay;
                 }
             }
             break;
@@ -138,34 +136,34 @@ void rotateMotor(unsigned char spd, unsigned char dir){
                 // reverse
                 PORTB_outval = 0x3A;
                 PORTB = PORTB_outval;
-                for(i = 0; i < 10000; i++);
+                stpMtrDelay;
                 PORTB_outval = 0x38;
                 PORTB = PORTB_outval;
-                for(i = 0; i < 10000; i++);
+                stpMtrDelay;
                 PORTB_outval = 0x39;
                 PORTB = PORTB_outval;
-                for(i = 0; i < 10000; i++);
+                stpMtrDelay;
                 PORTB_outval = 0x31;
                 PORTB = PORTB_outval;
-                for(i = 0; i < 10000; i++);
+                stpMtrDelay;
                 PORTB_outval = 0x35;
                 PORTB = PORTB_outval;
-                for(i = 0; i < 10000; i++);
+                stpMtrDelay;
                 PORTB_outval = 0x34;
                 PORTB = PORTB_outval;
-                for(i = 0; i < 10000; i++);
+                stpMtrDelay;
                 PORTB_outval = 0x36;
                 PORTB = PORTB_outval;
-                for(i = 0; i < 10000; i++);
+                stpMtrDelay;
                 PORTB_outval = 0x32;
                 PORTB = PORTB_outval;
-                for(i = 0; i < 10000; i++);
+                stpMtrDelay;
             } 
             else if(!dir){
                 for(j = 0; j <= 7; j++){
                     PORTB_outval = half[j];
                     PORTB = PORTB_outval;
-                    for(i = 0; i < 10000; i++);
+                    stpMtrDelay;
                 }
             }
             break;
@@ -211,7 +209,7 @@ void initDataDirection(){
 }
 
 void printArr(int * arr){
-    for(i = 0; i < maxSize; i++){
+    for(i = 0; i < maxSize / 2; i++){
       printf("arr[%u]: %d\r\n", (unsigned int)i, *(arr++) );
     }
     printf("\r\n");
@@ -228,10 +226,9 @@ void cstringcpy(int * dest, int * src)
       dest[i] = 0; 
     }*/
     
-    while (*src) {
+    while (*(src)) {
         *(dest++) = *(src++);
-    }
-    
+    }   
 }
 
 int arrSize = 0;
@@ -278,7 +275,7 @@ void bubbleSort(int * arr, int ascOrder){
     for(i = 0; arrSize > 1 && i < arrSize; i++) {
         for(j = 0; j < arrSize - i; j++) {
             if(  (ascOrder && destQueue[j] != 0 && destQueue[j+1] != 0 && destQueue[j] > destQueue[j+1]) ||
-                (!ascOrder && destQueue[b] != 0 && destQueue[b+1] != 0 && destQueue[b] <= destQueue[b+1]) ) { // dir = 1 = asc
+                (!ascOrder && destQueue[j] != 0 && destQueue[j+1] != 0 && destQueue[j] <= destQueue[j+1]) ) { // dir = 1 = asc
                 tmp = destQueue[j];
                 destQueue[j] = destQueue[j+1];
                 destQueue[j+1] = tmp;
@@ -347,6 +344,7 @@ void readBtnInput(){
 		case btn_one:
             printf("btn_ONE pressed!\r\n");
             btnQueue[btnQueueIndex++] = 1;
+            printf("btnQueue: w/ btnQueueIndex: %d\r\n", btnQueueIndex);
             printArr(btnQueue);
 			break;
 		case btn_two:
@@ -354,28 +352,29 @@ void readBtnInput(){
 			printf("lvlPartCnt: %d ... ", lvlPartCnt);
 			printf("currLvl: %d ... ", currLvl);
 			
-    	    if(lvlPartCnt < abs(currLvl - 2) * 3){
-                printf("valid button press! i can squeeze you in!\r\n");
-                // directly enqueue onto top of destQueue
-                if(sizeOfArr(destQueue) < maxSize){ // if there is at least one spot left on the queue
-                    //printf("destQueue has space\r\n");
-                    destQueue[sizeOfArr(destQueue)] = 2;
-                    //printf("dir: %d ... ", dir);
-                    bubbleSort(destQueue, dir); 
-                    // dest (destination) is defined as destQueue[destQueueIndex], initially the 0th element
-                    dest = destQueue[destQueueIndex++];
-                    printf("new dest: %d\r\n", dest);
-                }
+	    if(lvlPartCnt < abs(currLvl - 2) * 3){
+            printf("valid button press! i can squeeze you in!\r\n");
+            // directly enqueue onto top of destQueue
+            if(sizeOfArr(destQueue) < maxSize){ // if there is at least one spot left on the queue
+                //printf("destQueue has space\r\n");
+                destQueue[sizeOfArr(destQueue)] = 2;
+                //printf("dir: %d ... ", dir);
+                bubbleSort(destQueue, dir); 
+                // dest (destination) is defined as destQueue[destQueueIndex], initially the 0th element
+                dest = destQueue[destQueueIndex++];
+                printf("new dest: %d\r\n", dest);
             }
-            else{
-                btnQueue[btnQueueIndex++] = 2;
-                printArr(btnQueue);
-            }
+        }
+        else{
+            btnQueue[btnQueueIndex++] = 2;
+            printArr(btnQueue);
+        }
 			break;
 		case btn_three:
 			printf("btn_THREE pressed!\r\n");
-            btnQueue[btnQueueIndex++] = 3;
-            printArr(btnQueue);
+      btnQueue[btnQueueIndex++] = 3;
+      printf("btnQueue: w/ btnQueueIndex: %d\r\n", btnQueueIndex);
+      printArr(btnQueue);
 			break;
 		case btn_wait2:
 			break;
@@ -425,19 +424,23 @@ void main(void) {
     PORTB_outval = 0x30; // motor
     PORTB = PORTB_outval;
     
-    // init so can detect PRLowFlag
-    // each level is defind as three level counts - low, high, low
+    // init so can detect first PRLowFlag
     PRHighFlag = 1;
-    PRLowFlag = 0;
+    //PRLowFlag = 0;
     
-    dir = 0;
-    spd = 0;
+    dir = spd = 0;
+    
+    i = j = 0;
     
     btn_state = -1;
     
     lvlPartCnt = 0;
     currLvl = 1;
     
+    btnQueueIndex = destQueueIndex = 0;
+    
+    
+       
     while(1){
         ATD0CTL5 = 0x85; // right-justified, AN5
         
@@ -453,11 +456,11 @@ void main(void) {
         
         readBtnInput();
         
-        if(ROT_SPD == 0x02){
+        /*if(ROT_SPD == 0x02){
             spd = 0; // 45 degrees
         } else {
             spd = 1; // 90 degrees
-        }
+        }*/
     
         // check if destQueue is empty
         if(queueIsEmpty(destQueue) && queueIsEmpty(btnQueue)){
@@ -514,13 +517,56 @@ void main(void) {
         else if(currLvl < dest){ // up = ccw????
             dir = 1;
         }
-        else if(currLvl == dest){
+        
+        PRIsHighSignal = PRIsHigh();
+    
+        if(PRIsHighSignal && !PRHighFlag/* && PRLowFlag*/){
+            PRHighFlag = 1;
+            //PRLowFlag = 0;
+            
+            lvlPartCnt++;
+            
+            printf("lvlPartCnt++\r\n");
+        }
+        else if(!PRIsHighSignal && PRHighFlag /*&& !PRLowFlag*/){
+            PRHighFlag = 0;
+            //PRLowFlag = 1;
+            
+            lvlPartCnt++;
+            
+            printf("lvlPartCnt++\r\n");
+        }
+        
+        // each level is defind as three level parts (lvlPartCnt) - low, high, low = 3 counts
+        if(lvlPartCnt != 0 && lvlPartCnt % 3 == 0){ // completed moving to a different level
+            printf("lvlPartCnt: %d\r\n", lvlPartCnt);
+            if(dir)
+                currLvl++;
+            else if(!dir)
+                currLvl--;
+            
+            // allow detection of initial low PRIsHigh signal and incr initial lvlPartCnt
+            PRHighFlag = 1;
+            //PRLowFlag = 0;
+            
+            printf("currLvl = %d\r\n", currLvl);
+            
+            // update BCD with currLvl
+            PORTA_outval = convertIntToBcdHex(currLvl);
+            PORTA = PORTA_outval;
+        }
+
+        if(currLvl != dest) { // hasn't reached dest yet - rotate motor
+            printf("spd: %d, dir: %d\r\n", spd, dir);
+            rotateMotor(spd, dir);
+        }
+        if(currLvl == dest){ // reached dest - don't rotate motor
             //printf("currLvl = dest\r\n");
             
             printf("destQueue: w/ destQueueIndex: %d\r\n", destQueueIndex);
             printArr(destQueue);
             
-            if(destQueueIndex < sizeOfArr(destQueue)) {
+            if(destQueueIndex < sizeOfArr(destQueue) /*destQueue[destQueueIndex] != 0*/) { // next dest is valid
                 // set dest = next dest on destQueue
 
                 dest = destQueue[destQueueIndex++];
@@ -528,17 +574,17 @@ void main(void) {
                 //printf("destQueue @ index: %d\n", destQueueIndex);
                 //printArr(destQueue);
             }
-            else{
+            else{ // next dest is not valid (0)
                 printf("destQueue cleared, lvlPartCnt zeroed, and flags cleared\r\n");
                 clearDestQueue();
                 lvlPartCnt = 0;
                 PRHighFlag = 1;
-                PRLowFlag = 0;
+                //PRLowFlag = 0;
             }
             
             // delay for a while and take in button input
             // *doors open*
-            printf("|--DOORS OPENED--|")
+            printf("|--DOORS OPENED--|");
             for(i = 0; i < 150000; i++){
                 // level input
                 LVL_ONE = PORTK & 0x04;
@@ -547,54 +593,10 @@ void main(void) {
                 
                 readBtnInput(); 
             }
-            printf("|--DOORS ClOSED--|")
+            printf("|--DOORS ClOSED--|");
             
-            continue; // do not perform PR or lvlPartCnt manipulation
-        }
-        
-        PRIsHighFunc = PRIsHigh();
-    
-        if(PRIsHighFunc && !PRHighFlag && PRLowFlag){
-            PRHighFlag = 1;
-            PRLowFlag = 0;
-            
-            lvlPartCnt++;
-            
-            printf("lvlPartCnt++\r\n");
-        }
-        else if(PRIsHighFunc == 0 && PRHighFlag && !PRLowFlag){
-            PRHighFlag = 0;
-            PRLowFlag = 1;
-            
-            lvlPartCnt++;
-            
-            printf("lvlPartCnt++\r\n");
-        }
-        
-        // each level is defind as three level parts - low, high, low = 3 counts
-        if(lvlPartCnt != 0 && lvlPartCnt % 3 == 0){ // completed moving a level
-            printf("lvlPartCnt: %d\r\n", lvlPartCnt);
-            if(dir)
-                currLvl++;
-            else if(!dir)
-                currLvl--;
-            
-            PRHighFlag = 1;
-            PRLowFlag = 0;
-            
-            printf("currLvl = %d\r\n", currLvl);
-            // update BCD with currLvl
-            PORTA_outval = convertIntToBcdHex(currLvl);
-            PORTA = PORTA_outval;
-        }
-
-        if(currLvl != dest) { // rotate motor, hasn't reached dest yet
-            rotateMotor(spd, dir);
+            //continue; // do not perform PR or lvlPartCnt manipulation
         }
     }
-    // EnableInterrupts;
-    for(;;) {
-    _FEED_COP(); /* feeds the dog */
-    } /* loop forever */
-    /* please make sure that you never leave main */
+    while(1);
 }
